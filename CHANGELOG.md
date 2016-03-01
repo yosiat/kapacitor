@@ -12,6 +12,28 @@ These stats are also available in the DOT output of the Kapacitor show command.
 Significant performance improvements have also been added.
 In some cases Kapacitor throughput has improved by 4X.
 
+Kapacitor can now connect to different InfluxDB clusters.
+Multiple InfluxDB config sections can be defined and one will be marked as default.
+To upgrade convert an `influxdb` config.
+
+From this:
+
+```
+[influxdb]
+  enabled = true
+  ...
+```
+
+to this:
+
+```
+[[influxdb]]
+  enabled = true
+  default = true
+  name = "localhost"
+  ...
+```
+
 Various improvements to joining features have been implemented.
 With #144 you can now join streams with differing group by dimensions.
 
@@ -24,6 +46,7 @@ With #144 you can now join streams with differing group by dimensions.
 - [#145](https://github.com/influxdata/kapacitor/issues/145): The InfluxDB Out Node now writes data to InfluxDB in buffers.
 - [#215](https://github.com/influxdata/kapacitor/issues/215): Add performance metrics to nodes for average execution times and node throughput values.
 - [#144](https://github.com/influxdata/kapacitor/issues/144): Can now join streams with differing dimensions using the join.On property.
+- [#233](https://github.com/influxdata/kapacitor/issues/233): BREAKING: Now you can use multiple InfluxDB clusters. The config changes to make this possible are breaking.
 
 
 ### Bugfixes

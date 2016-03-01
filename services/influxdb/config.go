@@ -1,6 +1,7 @@
 package influxdb
 
 import (
+	"errors"
 	"net/url"
 	"time"
 
@@ -16,6 +17,8 @@ const (
 
 type Config struct {
 	Enabled               bool                `toml:"enabled"`
+	Name                  string              `toml:"name"`
+	Default               bool                `toml:"default"`
 	URLs                  []string            `toml:"urls"`
 	Username              string              `toml:"username"`
 	Password              string              `toml:"password"`
@@ -43,6 +46,9 @@ func NewConfig() Config {
 }
 
 func (c Config) Validate() error {
+	if c.Name == "" {
+		return errors.New("influxdb cluster must be given a name")
+	}
 	for _, u := range c.URLs {
 		_, err := url.Parse(u)
 		if err != nil {
