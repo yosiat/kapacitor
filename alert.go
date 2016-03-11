@@ -581,7 +581,7 @@ func (a *AlertNode) handleExec(ex *pipeline.ExecHandler, ad *AlertData) {
 	cmd := exec.Command(ex.Command[0], ex.Command[1:]...)
 	cmd.Stdin = bytes.NewBuffer(b)
 	var out bytes.Buffer
-	cmd.Stdout = &out
+	cmd.Stdout = &ouR
 	cmd.Stderr = &out
 	err = cmd.Run()
 	if err != nil {
