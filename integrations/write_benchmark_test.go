@@ -99,6 +99,7 @@ func BenchWrite(b *testing.B, tasksCount int, tickScript string) {
 	writeRequest := CreateWriteRequest(b, "packets_benchmark")
 
 	b.ReportAllocs()
+	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		responseRecorder := httptest.NewRecorder()

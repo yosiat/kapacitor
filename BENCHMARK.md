@@ -65,27 +65,27 @@ And ran another benchmark session:
 Compared the results using `benchcmp perf.0 perf.1`, and got the next results:
 
 ```
-benchmark                                            old ns/op       new ns/op       delta
-Benchmark_Write_MeasurementNameNotMatches_1000-4     15057077777     9273169621      -38.41%
-Benchmark_Write_MeasurementNameMatches_1000-4        26866797210     20475112351     -23.79%
-Benchmark_Write_MeasurementNameNotMatches_100-4      17269207804     9242848814      -46.48%
-Benchmark_Write_MeasurementNameMatches_100-4         17185451808     9263158453      -46.10%
-Benchmark_Write_MeasurementNameNotMatches_10-4       15581726506     7605390150      -51.19%
-Benchmark_Write_MeasurementNameMatches_10-4          16172117992     8545672907      -47.16%
+benchmark                                            old ns/op       new ns/op      delta
+Benchmark_Write_MeasurementNameNotMatches_1000-4     13577781619     5284088591     -61.08%
+Benchmark_Write_MeasurementNameMatches_1000-4        12410649978     5702849076     -54.05%
+Benchmark_Write_MeasurementNameNotMatches_100-4      14668078017     6735436249     -54.08%
+Benchmark_Write_MeasurementNameMatches_100-4         15342610617     6887722284     -55.11%
+Benchmark_Write_MeasurementNameNotMatches_10-4       15439700628     7222307428     -53.22%
+Benchmark_Write_MeasurementNameMatches_10-4          17612397820     7525348482     -57.27%
 
 benchmark                                            old allocs     new allocs     delta
-Benchmark_Write_MeasurementNameNotMatches_1000-4     15825754       8124723        -48.66%
-Benchmark_Write_MeasurementNameMatches_1000-4        24209180       14424353       -40.42%
-Benchmark_Write_MeasurementNameNotMatches_100-4      23860781       14146063       -40.71%
-Benchmark_Write_MeasurementNameMatches_100-4         24373527       14449352       -40.72%
-Benchmark_Write_MeasurementNameNotMatches_10-4       24283917       14292482       -41.14%
-Benchmark_Write_MeasurementNameMatches_10-4          24286921       14327471       -41.01%
+Benchmark_Write_MeasurementNameNotMatches_1000-4     15468417       7760752        -49.83%
+Benchmark_Write_MeasurementNameMatches_1000-4        19327860       11610918       -39.93%
+Benchmark_Write_MeasurementNameNotMatches_100-4      23168533       13770301       -40.56%
+Benchmark_Write_MeasurementNameMatches_100-4         23837235       14111713       -40.80%
+Benchmark_Write_MeasurementNameNotMatches_10-4       24214825       14250581       -41.15%
+Benchmark_Write_MeasurementNameMatches_10-4          24088652       14296632       -40.65%
 
 benchmark                                            old bytes      new bytes      delta
-Benchmark_Write_MeasurementNameNotMatches_1000-4     2257844232     1272840424     -43.63%
-Benchmark_Write_MeasurementNameMatches_1000-4        3257172728     2006710960     -38.39%
-Benchmark_Write_MeasurementNameNotMatches_100-4      3000318344     1758955048     -41.37%
-Benchmark_Write_MeasurementNameMatches_100-4         3058094440     1791036808     -41.43%
-Benchmark_Write_MeasurementNameNotMatches_10-4       3026568552     1751300984     -42.14%
-Benchmark_Write_MeasurementNameMatches_10-4          3026105272     1754809144     -42.01%
+Benchmark_Write_MeasurementNameNotMatches_1000-4     1975011816     989465960      -49.90%
+Benchmark_Write_MeasurementNameMatches_1000-4        2406223336     1420145576     -40.98%
+Benchmark_Write_MeasurementNameNotMatches_100-4      2890837336     1689738088     -41.55%
+Benchmark_Write_MeasurementNameMatches_100-4         2967947288     1726483144     -41.83%
+Benchmark_Write_MeasurementNameNotMatches_10-4       3015660424     1743931480     -42.17%
+Benchmark_Write_MeasurementNameMatches_10-4          2998693272     1748984872     -41.68%
 ```
