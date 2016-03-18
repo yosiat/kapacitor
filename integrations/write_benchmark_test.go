@@ -16,7 +16,6 @@ import (
 )
 
 var httpdService *httpd.Service
-var tm *kapacitor.TaskMaster
 
 var testDbrps = []kapacitor.DBRP{
 	{
@@ -26,7 +25,7 @@ var testDbrps = []kapacitor.DBRP{
 }
 
 func init() {
-	var logService = &LogService{}
+	logService := &LogService{}
 
 	wlog.SetLevel(wlog.OFF)
 	// create API server
@@ -34,15 +33,7 @@ func init() {
 	config.BindAddress = ":0" // Choose port dynamically
 	httpdService = httpd.NewService(config, logService.NewLogger("[http] ", log.LstdFlags))
 
-	tm = kapacitor.NewTaskMaster(logService)
-	tm.HTTPDService = httpdService
-	tm.UDFService = nil
-	tm.TaskStore = taskStore{}
-	tm.DeadmanService = deadman{}
-	tm.Open()
-
 	httpdService.Handler.MetaClient = &metaclient{}
-	httpdService.Handler.PointsWriter = tm
 
 	err := httpdService.Open()
 	if err != nil {
@@ -94,7 +85,16 @@ stream
 
 func BenchWrite(b *testing.B, tasksCount int, tickScript string) {
 
-	CreateTasks(tasksCount, tickScript)
+	tm := kapacitor.NewTaskMaster(&LogService{})
+	tm.HTTPDService = httpdService
+	tm.UDFService = nil
+	tm.TaskStore = taskStore{}
+	tm.DeadmanService = deadman{}
+	tm.Open()
+
+	httpdService.Handler.PointsWriter = tm
+
+	CreateTasks(tm, tasksCount, tickScript)
 
 	writeRequest := CreateWriteRequest(b, "packets_benchmark")
 
@@ -105,9 +105,12 @@ func BenchWrite(b *testing.B, tasksCount int, tickScript string) {
 		responseRecorder := httptest.NewRecorder()
 		httpdService.Handler.ServeHTTP(responseRecorder, writeRequest)
 	}
+
+	b.StopTimer()
+	tm.Close()
 }
 
-func CreateTasks(count int, tickScript string) {
+func CreateTasks(tm *kapacitor.TaskMaster, count int, tickScript string) {
 	for i := 0; i < count; i++ {
 		task, err := tm.NewTask(fmt.Sprintf("task_%v", i), tickScript, kapacitor.StreamTask, testDbrps, 0)
 		if err != nil {
