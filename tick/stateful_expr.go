@@ -83,6 +83,13 @@ func (s *StatefulExpr) EvalNum(scope *Scope) (interface{}, error) {
 
 func (s *StatefulExpr) eval(n Node, scope *Scope, stck *stack) (err error) {
 	switch node := n.(type) {
+
+	case *ReferenceNode:
+		refValue, err := scope.Get(node.Reference)
+		if err != nil {
+			return err
+		}
+		stck.Push(refValue)
 	case *BoolNode:
 		stck.Push(node.Bool)
 	case *NumberNode:
@@ -177,19 +184,7 @@ func errMismatched(op TokenType, l, r interface{}) error {
 func (s *StatefulExpr) evalBinary(op TokenType, scope *Scope, stck *stack) (err error) {
 	r := stck.Pop()
 	l := stck.Pop()
-	// Resolve any references
-	if ref, ok := l.(*ReferenceNode); ok {
-		l, err = scope.Get(ref.Reference)
-		if err != nil {
-			return err
-		}
-	}
-	if ref, ok := r.(*ReferenceNode); ok {
-		r, err = scope.Get(ref.Reference)
-		if err != nil {
-			return err
-		}
-	}
+
 	var v interface{}
 	switch {
 	case isMathOperator(op):
