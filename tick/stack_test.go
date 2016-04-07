@@ -41,10 +41,10 @@ func TestStackPushPop(t *testing.T) {
 	assert.Equal(st.Len(), 2, "After push-pop, stack should be empty")
 
 	popedValue := st.Pop()
-	assert.Equal(popedValue, 2, "Poped value should 1")
+	assert.Equal(popedValue, int64(2), "Poped value should int64(2)")
 
 	popedValue = st.Pop()
-	assert.Equal(popedValue, 1, "Poped value should 1")
+	assert.Equal(popedValue, int64(1), "Poped value should int64(1)")
 }
 
 func TestStackString(t *testing.T) {
@@ -55,6 +55,6 @@ func TestStackString(t *testing.T) {
 
 	st.Push(1)
 
-	assert.Equal(st.String(), "s[int:1,]", "Stack with one element")
+	assert.Equal(st.String(), "s[int64:1,]", "Stack with one element")
 
 }

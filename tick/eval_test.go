@@ -266,3 +266,81 @@ var s2 = a.structB()
 		t.Fatal("expected error from Evaluate")
 	}
 }
+
+func Benchmark_EvalBool_1ScopeItem(b *testing.B) {
+	n := &tick.BinaryNode{
+		Operator: tick.TokenGreater,
+		Left: &tick.ReferenceNode{
+			Reference: "value",
+		},
+		Right: &tick.NumberNode{
+			IsInt: true,
+			Int64: 20,
+		},
+	}
+
+	se := tick.NewStatefulExpr(n)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		// Don't time the creation of the tick scope
+		b.StopTimer()
+		executionScope := tick.NewScope()
+		// insert the value to the scope
+		executionScope.Set("value", int64(40))
+		b.StartTimer()
+
+		result, err := se.EvalBool(executionScope)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		if !result {
+			b.Fatalf("Got strange result: %v", result)
+		}
+	}
+
+}
+
+func Benchmark_EvalBool_11_ScopeItem(b *testing.B) {
+	n := &tick.BinaryNode{
+		Operator: tick.TokenGreater,
+		Left: &tick.ReferenceNode{
+			Reference: "value",
+		},
+		Right: &tick.NumberNode{
+			IsInt: true,
+			Int64: 20,
+		},
+	}
+
+	se := tick.NewStatefulExpr(n)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		// Don't time the creation of the tick scope
+		b.StopTimer()
+		executionScope := tick.NewScope()
+		// insert the value to the scope
+		executionScope.Set("value", int64(40))
+		// insert some random values (this can be tags, fields)
+		for i := 0; i < 10; i++ {
+			executionScope.Set(string(i), int64(i))
+		}
+
+		b.StartTimer()
+		result, err := se.EvalBool(executionScope)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		if !result {
+			b.Fatalf("Got strange result: %v", result)
+		}
+	}
+
+}

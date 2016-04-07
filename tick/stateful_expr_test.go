@@ -217,7 +217,7 @@ func TestStatefulExpression_EvalBool_NumberNode(t *testing.T) {
 		keyStruct{float64(10), int64(5), tick.TokenOr}:    errors.New("invalid float comparison operator OR"),
 		keyStruct{int64(5), float64(5), tick.TokenOr}:     errors.New("invalid float comparison operator OR"),
 		keyStruct{int64(5), float64(10), tick.TokenOr}:    errors.New("invalid float comparison operator OR"),
-		keyStruct{int64(5), int64(5), tick.TokenOr}:       errors.New("invalid float comparison operator OR"),
+		keyStruct{int64(5), int64(5), tick.TokenOr}:       errors.New("invalid int comparison operator OR"),
 
 		// (Redundant case)
 		keyStruct{float64(5), "NON_INT_VALUE", tick.TokenOr}:  errors.New("mismatched type to binary operator. got float64 OR string. see bool(), int(), float()"),

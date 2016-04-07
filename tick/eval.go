@@ -85,19 +85,19 @@ func wrapError(p Position, err error) error {
 func eval(n Node, scope *Scope, stck *stack) (err error) {
 	switch node := n.(type) {
 	case *BoolNode:
-		stck.Push(node.Bool)
+		stck.PushBool(node.Bool)
 	case *NumberNode:
 		if node.IsInt {
-			stck.Push(node.Int64)
+			stck.PushInt64(node.Int64)
 		} else {
-			stck.Push(node.Float64)
+			stck.PushFloat64(node.Float64)
 		}
 	case *DurationNode:
 		stck.Push(node.Dur)
 	case *StringNode:
-		stck.Push(node.Literal)
+		stck.PushString(node.Literal)
 	case *RegexNode:
-		stck.Push(node.Regex)
+		stck.PushRegex(node.Regex)
 	case *UnaryNode:
 		err = eval(node.Node, scope, stck)
 		if err != nil {

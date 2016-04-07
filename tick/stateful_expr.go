@@ -38,21 +38,16 @@ func (s *StatefulExpr) EvalBool(scope *Scope) (bool, error) {
 		return false, err
 	}
 	if stck.Len() == 1 {
-		value := stck.Pop()
-		// Resolve reference
-		if ref, ok := value.(*ReferenceNode); ok {
-			value, err = scope.Get(ref.Reference)
-			if err != nil {
-				return false, err
-			}
-		}
-		b, ok := value.(bool)
-		if ok {
-			return b, nil
-		} else {
-			return false, fmt.Errorf("expression returned unexpected type %T", value)
+		valueItem := stck.PopItem()
+
+		switch {
+		case valueItem.IsBool:
+			return valueItem.BoolValue, nil
+		default:
+			return false, fmt.Errorf("expression returned unexpected type %T", valueItem.Value())
 		}
 	}
+
 	return false, ErrInvalidExpr
 }
 
@@ -91,19 +86,19 @@ func (s *StatefulExpr) eval(n Node, scope *Scope, stck *stack) (err error) {
 		}
 		stck.Push(refValue)
 	case *BoolNode:
-		stck.Push(node.Bool)
+		stck.PushBool(node.Bool)
 	case *NumberNode:
 		if node.IsInt {
-			stck.Push(node.Int64)
+			stck.PushInt64(node.Int64)
 		} else {
-			stck.Push(node.Float64)
+			stck.PushFloat64(node.Float64)
 		}
 	case *DurationNode:
 		stck.Push(node.Dur)
 	case *StringNode:
-		stck.Push(node.Literal)
+		stck.PushString(node.Literal)
 	case *RegexNode:
-		stck.Push(node.Regex)
+		stck.PushRegex(node.Regex)
 	case *UnaryNode:
 		err = s.eval(node.Node, scope, stck)
 		if err != nil {
@@ -182,12 +177,16 @@ func errMismatched(op TokenType, l, r interface{}) error {
 }
 
 func (s *StatefulExpr) evalBinary(op TokenType, scope *Scope, stck *stack) (err error) {
-	r := stck.Pop()
-	l := stck.Pop()
+	rItem := stck.PopItem()
+	lItem := stck.PopItem()
 
 	var v interface{}
 	switch {
+
 	case isMathOperator(op):
+		// No tests, no changes!
+		r := rItem.Value()
+		l := lItem.Value()
 		switch ln := l.(type) {
 		case int64:
 			rn, ok := r.(int64)
@@ -204,57 +203,76 @@ func (s *StatefulExpr) evalBinary(op TokenType, scope *Scope, stck *stack) (err 
 		default:
 			return errMismatched(op, l, r)
 		}
-	case isCompOperator(op):
-		switch ln := l.(type) {
-		case bool:
-			rn, ok := r.(bool)
-			if !ok {
-				return errMismatched(op, l, r)
-			}
-			v, err = doBoolComp(op, ln, rn)
-		case int64:
-			lf := float64(ln)
-			var rf float64
-			switch rn := r.(type) {
-			case int64:
-				rf = float64(rn)
-			case float64:
-				rf = rn
-			default:
-				return errMismatched(op, l, r)
-			}
-			v, err = doFloatComp(op, lf, rf)
-		case float64:
-			var rf float64
-			switch rn := r.(type) {
-			case int64:
-				rf = float64(rn)
-			case float64:
-				rf = rn
-			default:
-				return errMismatched(op, l, r)
-			}
-			v, err = doFloatComp(op, ln, rf)
-		case string:
-			rn, ok := r.(string)
-			if ok {
-				v, err = doStringComp(op, ln, rn)
-			} else if rx, ok := r.(*regexp.Regexp); ok {
-				v, err = doRegexComp(op, ln, rx)
-			} else {
-				return errMismatched(op, l, r)
-			}
-		default:
-			return errMismatched(op, l, r)
+
+		if err != nil {
+			return
 		}
+
+		stck.Push(v)
+		return
+	case isCompOperator(op):
+		var compareResult bool
+		switch {
+		case lItem.IsBool:
+			if rItem.IsBool {
+				compareResult, err = doBoolComp(op, lItem.BoolValue, rItem.BoolValue)
+			} else {
+				return errMismatched(op, lItem.BoolValue, rItem.Value())
+			}
+
+		case lItem.IsString:
+			if rItem.IsString {
+				compareResult, err = doStringComp(op, lItem.StringValue, rItem.StringValue)
+			} else if rItem.IsRegex {
+				compareResult, err = doRegexComp(op, lItem.StringValue, rItem.RegexValue)
+			} else {
+				return errMismatched(op, lItem.StringValue, rItem.Value())
+			}
+
+		case lItem.IsFloat:
+			ln := lItem.FloatValue
+			var rf float64
+			switch {
+			case rItem.IsInt:
+				rf = float64(rItem.IntValue)
+			case rItem.IsFloat:
+				rf = rItem.FloatValue
+			default:
+				return errMismatched(op, lItem.FloatValue, rItem.Value())
+			}
+			compareResult, err = doFloatComp(op, ln, rf)
+
+		case lItem.IsInt:
+			switch {
+
+			// If both sides are int64, we will do int64 comparsion
+			case rItem.IsInt:
+				// Left and right are int64
+				compareResult, err = doIntComp(op, lItem.IntValue, rItem.IntValue)
+
+			// The right side is float64, we will do float64 comparison
+			case rItem.IsFloat:
+				lf := float64(lItem.IntValue)
+				rf := rItem.FloatValue
+				compareResult, err = doFloatComp(op, lf, rf)
+			default:
+				return errMismatched(op, lItem.IntValue, rItem.Value())
+			}
+
+		default:
+			return errMismatched(op, lItem.Value(), rItem.Value())
+		}
+
+		if err != nil {
+			return
+		}
+
+		stck.PushBool(compareResult)
+		return
 	default:
 		return fmt.Errorf("return: unknown operator %v", op)
 	}
-	if err != nil {
-		return
-	}
-	stck.Push(v)
-	return
+
 }
 
 func doIntMath(op TokenType, l, r int64) (v int64, err error) {
@@ -323,6 +341,26 @@ func doFloatComp(op TokenType, l, r float64) (v bool, err error) {
 		v = l >= r
 	default:
 		err = fmt.Errorf("invalid float comparison operator %v", op)
+	}
+	return
+}
+
+func doIntComp(op TokenType, l, r int64) (v bool, err error) {
+	switch op {
+	case TokenEqual:
+		v = l == r
+	case TokenNotEqual:
+		v = l != r
+	case TokenLess:
+		v = l < r
+	case TokenGreater:
+		v = l > r
+	case TokenLessEqual:
+		v = l <= r
+	case TokenGreaterEqual:
+		v = l >= r
+	default:
+		err = fmt.Errorf("invalid int comparison operator %v", op)
 	}
 	return
 }
