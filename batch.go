@@ -51,9 +51,9 @@ func (s *BatchNode) linkChild(c Node) error {
 	return nil
 }
 
-func (s *BatchNode) addParentEdge(in *Edge) {
+func (s *BatchNode) addParentEdge(nodeName string, in *Edge) {
 	// Pass edges down to children
-	s.children[s.idx].addParentEdge(in)
+	s.children[s.idx].addParentEdge(nodeName, in)
 	s.idx++
 }
 

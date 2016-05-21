@@ -20,8 +20,34 @@ func newStreamNode(et *ExecutingTask, n *pipeline.StreamNode, l *log.Logger) (*S
 		node: node{Node: n, et: et, logger: l},
 		s:    n,
 	}
-	sn.node.runF = sn.runSourceStream
+	sn.node.runF = sn.runNoOp
 	return sn, nil
+}
+
+func (s *StreamNode) linkChild(c Node) error {
+	// add child
+	if s.Provides() != c.Wants() {
+		return fmt.Errorf("cannot add child mismatched edges: %s -> %s", s.Provides(), c.Wants())
+	}
+	s.children = append(s.children, c)
+
+	// add parent
+	c.addParent(s)
+
+	return nil
+}
+
+func (s *StreamNode) addParentEdge(nodeName string, in *Edge) {
+	for _, childNode := range s.children {
+
+		if childNode.Name() == nodeName {
+			childNode.addParentEdge(nodeName, in)
+		}
+	}
+}
+
+func (s *StreamNode) runNoOp([]byte) error {
+	return nil
 }
 
 func (s *StreamNode) runSourceStream([]byte) error {

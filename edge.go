@@ -42,6 +42,8 @@ type Edge struct {
 	statMap    *expvar.Map
 	groupMu    sync.RWMutex
 	groupStats map[models.GroupID]*edgeStat
+
+	id string
 }
 
 func newEdge(taskName, parentName, childName string, t pipeline.EdgeType, size int, logService LogService) *Edge {
@@ -63,6 +65,7 @@ func newEdge(taskName, parentName, childName string, t pipeline.EdgeType, size i
 		emitted:    emitted,
 		aborted:    make(chan struct{}),
 		groupStats: make(map[models.GroupID]*edgeStat),
+		id:         fmt.Sprintf("%s|%s->%s", taskName, parentName, childName),
 	}
 	name := fmt.Sprintf("%s|%s->%s", taskName, parentName, childName)
 	e.logger = logService.NewLogger(fmt.Sprintf("[edge:%s] ", name), log.LstdFlags)

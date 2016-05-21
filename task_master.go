@@ -108,11 +108,11 @@ type TaskMaster struct {
 	// We are mapping from (db, rp, measurement) to map of task ids to their edges
 	// The outer map (from dbrp&measurement) is for fast access on forkPoint
 	// While the inner map is for handling fork deletions better (see taskToForkKeys)
-	forks map[forkKey]map[string]*Edge
+	forks map[DBRPM]map[string][]*Edge
 
 	// Task to fork keys is map to help in deletes, in deletes
 	// we have only the task id, and they are called after the task is deleted from TaskMaster.tasks
-	taskToForkKeys map[string][]forkKey
+	taskToForkKeys map[string][]DBRPM
 
 	// Set of incoming batches
 	batches map[string][]BatchCollector
@@ -128,17 +128,11 @@ type TaskMaster struct {
 	wg      sync.WaitGroup
 }
 
-type forkKey struct {
-	Database        string
-	RetentionPolicy string
-	Measurement     string
-}
-
 // Create a new Executor with a given clock.
 func NewTaskMaster(l LogService) *TaskMaster {
 	return &TaskMaster{
-		forks:          make(map[forkKey]map[string]*Edge),
-		taskToForkKeys: make(map[string][]forkKey),
+		forks:          make(map[DBRPM]map[string][]*Edge),
+		taskToForkKeys: make(map[string][]DBRPM),
 		batches:        make(map[string][]BatchCollector),
 		tasks:          make(map[string]*ExecutingTask),
 		LogService:     l,
@@ -303,23 +297,26 @@ func (tm *TaskMaster) StartTask(t *Task) (*ExecutingTask, error) {
 		return nil, err
 	}
 
-	var ins []*Edge
+	var ins map[string]*Edge
+
 	switch et.Task.Type {
 	case StreamTask:
-		e, err := tm.newFork(et.Task.ID, et.Task.DBRPs, et.Task.Measurements())
+		e, err := tm.newFork(et.Task.ID, et.Task.DBRPs, et.Task.DBRPMs())
 		if err != nil {
 			return nil, err
 		}
-		ins = []*Edge{e}
+		ins = e
 	case BatchTask:
 		count, err := et.BatchCount()
 		if err != nil {
 			return nil, err
 		}
-		ins = make([]*Edge, count)
+		ins = make(map[string]*Edge, count)
 		for i := 0; i < count; i++ {
-			in := newEdge(t.ID, "batch", fmt.Sprintf("batch%d", i), pipeline.BatchEdge, defaultEdgeBufferSize, tm.LogService)
-			ins[i] = in
+			batchNodeName := fmt.Sprintf("batch%d", i)
+			in := newEdge(t.ID, "batch", batchNodeName, pipeline.BatchEdge, defaultEdgeBufferSize, tm.LogService)
+
+			ins[batchNodeName] = in
 			tm.batches[t.ID] = append(tm.batches[t.ID], in)
 		}
 	}
@@ -429,7 +426,7 @@ func (tm *TaskMaster) forkPoint(p models.Point) {
 	defer tm.mu.RUnlock()
 
 	// Create the fork keys - which is (db, rp, measurement)
-	key := forkKey{
+	key := DBRPM{
 		Database:        p.Database,
 		RetentionPolicy: p.RetentionPolicy,
 		Measurement:     p.Name,
@@ -437,20 +434,49 @@ func (tm *TaskMaster) forkPoint(p models.Point) {
 
 	// If we have empty measurement in this db,rp we need to send it all
 	// the points
-	emptyMeasurementKey := forkKey{
+	emptyMeasurementKey := DBRPM{
 		Database:        p.Database,
 		RetentionPolicy: p.RetentionPolicy,
 		Measurement:     "",
 	}
 
-	// Merge the results to the forks map
-	for _, edge := range tm.forks[key] {
-		edge.CollectPoint(p)
+	emptyDBRPKey := DBRPM{
+		Database:        "",
+		RetentionPolicy: "",
+		Measurement:     p.Name,
 	}
 
-	for _, edge := range tm.forks[emptyMeasurementKey] {
-		edge.CollectPoint(p)
+	emptyDBRPMKey := DBRPM{
+		Database:        "",
+		RetentionPolicy: "",
+		Measurement:     "",
 	}
+
+	// Merge the results to the forks map
+	for _, edges := range tm.forks[key] {
+		for _, edge := range edges {
+			edge.CollectPoint(p)
+		}
+	}
+
+	for _, edges := range tm.forks[emptyMeasurementKey] {
+		for _, edge := range edges {
+			edge.CollectPoint(p)
+		}
+	}
+
+	for _, edges := range tm.forks[emptyDBRPKey] {
+		for _, edge := range edges {
+			edge.CollectPoint(p)
+		}
+	}
+
+	for _, edges := range tm.forks[emptyDBRPMKey] {
+		for _, edge := range edges {
+			edge.CollectPoint(p)
+		}
+	}
+
 }
 
 func (tm *TaskMaster) WritePoints(database, retentionPolicy string, consistencyLevel imodels.ConsistencyLevel, points []imodels.Point) error {
@@ -478,52 +504,41 @@ func (tm *TaskMaster) WritePoints(database, retentionPolicy string, consistencyL
 func (tm *TaskMaster) NewFork(taskName string, dbrps []DBRP, measurements []string) (*Edge, error) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
-	return tm.newFork(taskName, dbrps, measurements)
-}
-
-func forkKeys(dbrps []DBRP, measurements []string) []forkKey {
-	keys := make([]forkKey, 0)
-
-	for _, dbrp := range dbrps {
-		for _, measurement := range measurements {
-			key := forkKey{
-				RetentionPolicy: dbrp.RetentionPolicy,
-				Database:        dbrp.Database,
-				Measurement:     measurement,
-			}
-
-			keys = append(keys, key)
-		}
-	}
-
-	return keys
+	// TODO: fix me!
+	return nil, errors.New("NOT IMPLEMENTED")
+	// return tm.newFork(taskName, dbrps, measurements)
 }
 
 // internal newFork, must have acquired lock before calling.
-func (tm *TaskMaster) newFork(taskName string, dbrps []DBRP, measurements []string) (*Edge, error) {
+func (tm *TaskMaster) newFork(taskName string, dbrps []DBRP, dbrpms map[string]DBRPM) (map[string]*Edge, error) {
 	if tm.closed {
 		return nil, ErrTaskMasterClosed
 	}
 
-	e := newEdge(taskName, "stream", "stream0", pipeline.StreamEdge, defaultEdgeBufferSize, tm.LogService)
+	nodeNameToEdge := make(map[string]*Edge, 0)
 
-	for _, key := range forkKeys(dbrps, measurements) {
-		tm.taskToForkKeys[taskName] = append(tm.taskToForkKeys[taskName], key)
+	for nodeName, dbrpm := range dbrpms {
+		// Create edge for this node
+		e := newEdge(taskName, "stream", nodeName, pipeline.StreamEdge, defaultEdgeBufferSize, tm.LogService)
+		nodeNameToEdge[nodeName] = e
+
+		tm.taskToForkKeys[taskName] = append(tm.taskToForkKeys[taskName], dbrpm)
 
 		// Add the task to the tasksMap if it doesn't exists
-		tasksMap, ok := tm.forks[key]
+		tasksMap, ok := tm.forks[dbrpm]
 		if !ok {
-			tasksMap = make(map[string]*Edge, 0)
+			tasksMap = make(map[string][]*Edge, 0)
+			tasksMap[taskName] = make([]*Edge, 0)
 		}
 
 		// Add the edge to task map
-		tasksMap[taskName] = e
+		tasksMap[taskName] = append(tasksMap[taskName], e)
 
 		// update the task map in the forks
-		tm.forks[key] = tasksMap
+		tm.forks[dbrpm] = tasksMap
 	}
 
-	return e, nil
+	return nodeNameToEdge, nil
 }
 
 func (tm *TaskMaster) DelFork(id string) {
@@ -534,22 +549,25 @@ func (tm *TaskMaster) DelFork(id string) {
 
 // internal delFork function, must have lock to call
 func (tm *TaskMaster) delFork(id string) {
-
 	// mark if we already closed the edge because the edge is replicated
 	// by it's fork keys (db,rp,measurement)
-	isEdgeClosed := false
+	// TODO: we can change "Close" to be safe for more than one call.
+	isEdgeClosed := make(map[string]bool, 0)
 
 	// Find the fork keys
 	for _, key := range tm.taskToForkKeys[id] {
 
 		// check if the edge exists
-		edge, ok := tm.forks[key][id]
+		edges, ok := tm.forks[key][id]
 		if ok {
 
-			// Only close the edge if we are already didn't closed it
-			if edge != nil && !isEdgeClosed {
-				isEdgeClosed = true
-				edge.Close()
+			for _, edge := range edges {
+
+				// Only close the edge if we are already didn't closed it
+				if edge != nil && !isEdgeClosed[edge.statsKey] {
+					isEdgeClosed[edge.statsKey] = true
+					edge.Close()
+				}
 			}
 
 			// remove the task in fork map

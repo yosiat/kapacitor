@@ -77,19 +77,34 @@ func (t *Task) Dot() []byte {
 	return t.Pipeline.Dot(t.ID)
 }
 
-// returns all the measurements from a FromNode
-func (t *Task) Measurements() []string {
-	measurements := make([]string, 0)
+// DBRPM - Database, RetentionPolicy and Measurement
+type DBRPM struct {
+	Database        string
+	RetentionPolicy string
+	Measurement     string
+}
+
+func (dbrpm DBRPM) String() string {
+	return fmt.Sprintf("DB: %s, RP: %s, Measurement: %s", dbrpm.Database, dbrpm.RetentionPolicy, dbrpm.Measurement)
+}
+
+// DBRPM returns a mapping from "FromNode" name to it's dbrpm
+func (t *Task) DBRPMs() map[string]DBRPM {
+	dbrpms := make(map[string]DBRPM, 0)
 
 	t.Pipeline.Walk(func(node pipeline.Node) error {
-		switch streamNode := node.(type) {
+		switch fromNode := node.(type) {
 		case *pipeline.FromNode:
-			measurements = append(measurements, streamNode.Measurement)
+			dbrpms[fromNode.Name()] = DBRPM{
+				Database:        fromNode.Database,
+				RetentionPolicy: fromNode.RetentionPolicy,
+				Measurement:     fromNode.Measurement,
+			}
 		}
 		return nil
 	})
 
-	return measurements
+	return dbrpms
 }
 
 // ----------------------------------
@@ -188,10 +203,10 @@ func (et *ExecutingTask) link() error {
 }
 
 // Start the task.
-func (et *ExecutingTask) start(ins []*Edge, snapshot *TaskSnapshot) error {
+func (et *ExecutingTask) start(ins map[string]*Edge, snapshot *TaskSnapshot) error {
 
-	for _, in := range ins {
-		et.source.addParentEdge(in)
+	for nodeName, in := range ins {
+		et.source.addParentEdge(nodeName, in)
 	}
 	validSnapshot := false
 	if snapshot != nil {

@@ -24,7 +24,7 @@ const (
 type Node interface {
 	pipeline.Node
 
-	addParentEdge(*Edge)
+	addParentEdge(string, *Edge)
 
 	init()
 
@@ -80,7 +80,7 @@ type node struct {
 	statMap    *kexpvar.Map
 }
 
-func (n *node) addParentEdge(e *Edge) {
+func (n *node) addParentEdge(nodeName string, e *Edge) {
 	n.ins = append(n.ins, e)
 }
 
@@ -165,7 +165,7 @@ func (n *node) addChild(c Node) (*Edge, error) {
 	if edge == nil {
 		return nil, fmt.Errorf("unknown edge type %s", n.Provides())
 	}
-	c.addParentEdge(edge)
+	c.addParentEdge(c.Name(), edge)
 	return edge, nil
 }
 
